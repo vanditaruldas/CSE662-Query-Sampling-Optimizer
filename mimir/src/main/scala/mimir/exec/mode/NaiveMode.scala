@@ -165,14 +165,22 @@ class NaiveMode (seeds: Seq[Long] = (0l until 10l).toSeq)
 
       }
 
+      case Sort(sortCols,oldChild)=>{
+        val (newChild, nonDeterministicInput) = ReplaceMissingLensToSampler(oldChild, models,shift)
+        (
+          Sort(sortCols,newChild),nonDeterministicInput
+        )
+
+      }
+
 
 
       // We don't handle materialized tuple bundles (at the moment)
       // so give up and drop the view.
       case View(_, query, _) =>  ReplaceMissingLensWithSampler(query, models,shift)
 
-      case ( Sort(_,_) | LeftOuterJoin(_,_,_) | Annotate(_, _) | ProvenanceOf(_) | Recover(_, _) ) =>
-        throw new RAException("Tuple-Bundler presently doesn't support LeftOuterJoin, Sort, or Limit (probably need to resort to 'Long' evaluation)")
+      case ( LeftOuterJoin(_,_,_) | Annotate(_, _) | ProvenanceOf(_) | Recover(_, _) ) =>
+        throw new RAException("NaiveMode presently doesn't support LeftOuterJoin")
     }
   }
 
