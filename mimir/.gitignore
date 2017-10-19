@@ -1,0 +1,53 @@
+*.class
+*.log
+*.swp
+*.db
+*.bak
+.DS_Store
+
+# sbt specific
+.cache/
+.history/
+.lib/
+dist/*
+target/
+lib_managed/
+src_managed/
+project/boot/
+project/plugins/project/
+
+# Scala-IDE specific
+.scala_dependencies
+.worksheet
+
+# Sublime-Text
+Mimir.sublime-workspace
+
+#IDE
+.idea/
+
+# JDBC Config File
+mimircore/config/jdbc.property
+
+# Serialized models
+serialized/*.db/
+
+# Large databases
+databases/noisy.db
+databases/tpch*.db
+
+# Large Data Files
+test/pdbench
+test/tpch
+
+# DBGen
+tpch-dbgen
+
+# Plots
+*.png
+*.pdf
+*.gpl
+/bin/
+
+# Python
+*.pyc
