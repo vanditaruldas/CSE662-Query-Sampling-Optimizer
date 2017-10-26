@@ -114,6 +114,7 @@ object Mimir extends LazyLogging {
           case pragma: Pragma   => handlePragma(pragma)
           case analyze: Analyze => handleAnalyze(analyze)
           case plot: DrawPlot   => Plot.plot(plot, db, output)
+          case qOpt: QOptimizer => handleQOptimize(qopt)
           case _                => db.update(stmt)
         }
 
@@ -209,6 +210,13 @@ object Mimir extends LazyLogging {
         output.print("Examples: "+explanation.examples.map(_.toString).mkString(", "))
       }
     }
+  }
+  
+  def handleQOptimize(qopt : QOptimizer)
+  {
+    val size = qOpt.getDataSize()
+    val uncertainty = qOpt.getUcPrct()
+    output.print("Size of Dataset: "+size+"\nAmount of Uncertainty: "+uncertainty)
   }
 
   def printReasons(reasons: Iterable[Reason])

@@ -91,6 +91,7 @@ import mimir.sql.CreateView;
 import mimir.sql.CreateLens;
 import mimir.sql.CreateAdaptiveSchema;
 import mimir.sql.Analyze;
+import mimir.sql.QOptimizer;
 import mimir.sql.Explain;
 import mimir.sql.Feedback;
 import mimir.sql.Load;
@@ -228,6 +229,7 @@ TOKEN: /* SQL Keywords. prefixed with K_ to avoid name clashes */
 |   <K_INTERSECT:"INTERSECT">
 |   <K_FEEDBACK:"FEEDBACK">
 |   <K_EXTRACT:"EXTRACT">
+|   <K_QOPTIMIZER:"QOPTIMIZER">
 }
 
 
@@ -278,6 +280,8 @@ Statement Statement() :
     stm= Analyze()
     |
     stm= Explain()
+    |
+    stm= QOptimizer()
     |
     stm =  Update()
     |
@@ -403,6 +407,30 @@ Analyze Analyze():
   selectBody = SelectBody()
 	{ 
     return new Analyze(selectBody, rowid, col);
+  }
+}
+
+QOptimizer QOptimizer():
+  {
+    SelectBody selectBody = null;
+    Token size = null;
+    Token uncertainty = null; 
+  }
+{
+  <K_QOPTIMIZER>
+  (
+  size = <S_DOUBLE>
+  |
+  size = <S_INTEGER>
+  )
+  (
+  uncertainty = <S_DOUBLE>
+  |
+  uncertainty = <S_INTEGER>
+  )
+  selectBody = SelectBody()
+  {
+    return new QOptimizer(selectBody, Double.parseDouble(size.image), Double.parseDouble(uncertainty.image));
   }
 }
 
