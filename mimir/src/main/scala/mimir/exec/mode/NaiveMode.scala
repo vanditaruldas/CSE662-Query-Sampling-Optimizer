@@ -170,7 +170,6 @@ class NaiveMode (seeds: Seq[Long] = (0l until 10l).toSeq)
         (
           Sort(sortCols,newChild),nonDeterministicInput
         )
-
       }
 
 
