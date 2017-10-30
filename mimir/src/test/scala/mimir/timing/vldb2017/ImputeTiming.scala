@@ -19,7 +19,7 @@ import net.sf.jsqlparser.statement.Statement
 import net.sf.jsqlparser.statement.select.{FromItem, PlainSelect, Select, SelectBody}
 
 object ImputeTiming
-  extends VLDB2017TimingTest("tpch200_tpch_UC10", Map("reset" -> "NO", "inline" -> "YES"))//, "initial_db" -> "test/tpch-impute-1g.db"))
+  extends VLDB2017TimingTest("tpch50_tpch_UC40", Map("reset" -> "NO", "inline" -> "YES"))//, "initial_db" -> "test/tpch-impute-1g.db"))
   with BeforeAll
 {
 
@@ -46,7 +46,8 @@ object ImputeTiming
 
   val relevantTables = Seq(
     ("LINEITEM", Seq("linestatus","discount","orderkey")),
-    ("ORDERS", Seq("custkey"))
+    //("LINEITEM", Seq("shipdate")),
+    ("ORDERS", Seq("orderdate"))
   )
 
   val relevantIndexes = Seq(
@@ -66,7 +67,20 @@ object ImputeTiming
 
         val TPCHQueries = 
           Seq(
-            /*s"""
+            /*
+            s"""
+            SELECT linenumber from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by linenumber;
+            """,
+            s"""
+            select discount from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by discount;
+            """
+            ,
+            s"""
+            select discount from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by discount, linestatus;
+            """
+            */
+            /*
+            s"""
             select l.partkey,l.quantity from lineitem_run_$i as l,orders_run_$i as o 
             where l.orderkey = o.orderkey and o.orderpriority = '1-URGENT' and o.totalprice > 430000 and o.orderstatus = 'F';
             """

@@ -166,7 +166,7 @@ class NaiveMode (seeds: Seq[Long] = (0l until 10l).toSeq)
       }
 
       case Sort(sortCols,oldChild)=>{
-        val (newChild, nonDeterministicInput) = ReplaceMissingLensToSampler(oldChild, models,shift)
+        val (newChild, nonDeterministicInput) = ReplaceMissingLensWithSampler(oldChild, models,shift)
         (
           Sort(sortCols,newChild),nonDeterministicInput
         )

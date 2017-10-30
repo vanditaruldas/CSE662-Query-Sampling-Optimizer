@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src/main/java"/>
+	<classpathentry kind="lib" path="lib/gprom-jdbc.jar"/>
+	<classpathentry kind="lib" path="lib/javacc.jar"/>
+	<classpathentry kind="lib" path="lib/ojdbc7.jar"/>
+	<classpathentry kind="lib" path="lib/py4j0.10.4.jar"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="C:/Users/Vandit/workspace/jsqlparser/jsqlparser-1.0.0.jar"/>
+	<classpathentry kind="output" path="target/scala-2.11/classes"/>
+</classpath>

@@ -2,6 +2,7 @@ package mimir;
 
 import java.io._
 import java.sql.SQLException
+import java.util.Random
 
 import mimir.ctables._
 import mimir.parser._
@@ -11,6 +12,7 @@ import mimir.algebra._
 import mimir.statistics.DetectSeries
 import mimir.plot.Plot
 import mimir.exec.{OutputFormat,DefaultOutputFormat,PrettyOutputFormat}
+import mimir.exec.mode._
 import net.sf.jsqlparser.statement.Statement
 import net.sf.jsqlparser.statement.select.{FromItem, PlainSelect, Select, SelectBody} 
 import net.sf.jsqlparser.statement.drop.Drop
@@ -22,6 +24,7 @@ import org.rogach.scallop._
 import com.typesafe.scalalogging.slf4j.LazyLogging
 
 import scala.collection.JavaConverters._
+import scala.io.Source
 
 /**
  * The primary interface to Mimir.  Responsible for:
@@ -114,6 +117,7 @@ object Mimir extends LazyLogging {
           case pragma: Pragma   => handlePragma(pragma)
           case analyze: Analyze => handleAnalyze(analyze)
           case plot: DrawPlot   => Plot.plot(plot, db, output)
+          case qOpt: QOptimizer => handleQOptimize(qOpt)
           case _                => db.update(stmt)
         }
 
@@ -210,6 +214,32 @@ object Mimir extends LazyLogging {
       }
     }
   }
+  
+  def handleQOptimize(qOpt : QOptimizer)
+  {
+    val query = db.sql.convert(qOpt.getSelectBody()) // Need to change selectBody table name to add "_run_1"
+    val size = qOpt.getDataSize()
+    val uncertainty = qOpt.getUcPrct()
+    val compileMode = qOpt.getCompileMode()
+    val relevantTables = Source.fromFile("test/UncertaintyList/UncertaintyList.txt").getLines.toArray.map{ line => 
+      val w = line.split(" ")
+      (w(0),w.tail)
+    }.toSeq
+    relevantTables.foreach(createMVLens(_))
+    val random = new Random(42)
+    if (compileMode.equals("TB")) {
+      val tupleBundle = new TupleBundle( (0 until 10).map { _ => random.nextLong })
+      TimeUtils.monitor("QUERY", output.print(_)) {
+        db.query(query, tupleBundle) { output.print(_) }
+      }
+    } else {
+      val naiveMode = new NaiveMode((0 until 10).map { _ => random.nextLong })
+      TimeUtils.monitor("QUERY", output.print(_)) {
+        db.query(query, naiveMode) { output.print(_) }
+      }
+    }
+    output.print("Size of Dataset: "+size+"\nAmount of Uncertainty: "+uncertainty)
+  }
 
   def printReasons(reasons: Iterable[Reason])
   {
@@ -280,6 +310,17 @@ object Mimir extends LazyLogging {
     }
   }
 
+  def createMVLens(tableFields:(String, Array[String])) = {
+    val (baseTable, nullables) = tableFields
+    val testTable = (baseTable+s"_run_1").toUpperCase
+    if(!db.tableExists(testTable)){
+      db.update(db.stmt(s"""
+        CREATE LENS ${testTable}
+          AS SELECT * FROM ${baseTable}
+        WITH MISSING_VALUE(${nullables.map {"'"+_+"'"}.mkString(", ")})
+      """));
+    }
+  }
 
 }
 
