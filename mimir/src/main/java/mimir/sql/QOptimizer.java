@@ -28,6 +28,7 @@ public class QOptimizer implements Statement{
 	private double ucPrct;
 	private double timeTB;
 	private double timeNaive;
+	private String query;
 	private HashMap<String,HashSet<String>> uncertAtt;
 	private HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>> timings;
 	
@@ -36,7 +37,18 @@ public class QOptimizer implements Statement{
 	}
 
 	public QOptimizer(SelectBody selectBody, double dataSize, double ucPrct) {
-		this.selectBody = selectBody;
+		StringReader input = new StringReader(selectBody.toString().toUpperCase());
+		CCJSqlParser parser = new CCJSqlParser(input);
+		Statement query = null;
+		try
+		{
+			query = parser.Statement();
+		}
+		catch (ParseException e)
+		{
+			e.printStackTrace();
+		}
+		this.selectBody = ((Select)query).getSelectBody();
 		this.dataSize = dataSize;
 		this.timeNaive = 0;
 		this.timeTB = 0;
@@ -51,7 +63,7 @@ public class QOptimizer implements Statement{
 
 	private void changeSelectBody() {
 		String name = ((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getName();
-		((Table)((PlainSelect)this.getSelectBody()).getFromItem()).setName(name.concat("_run_$i"));
+		this.setQuery(this.getSelectBody().toString().replaceAll(name, name.concat("_RUN_1")));
 	}
 
 	private void getAnalysisTimings() {
@@ -257,6 +269,15 @@ public class QOptimizer implements Statement{
 			this.setTimeNaive(Double.MAX_VALUE);
 			this.setTimeTB(Double.MAX_VALUE);
 		}
+	}
+
+	
+	public String getQuery() {
+		return query;
+	}
+
+	public void setQuery(String query) {
+		this.query = query;
 	}
 
 	public double getTimeTB() {
