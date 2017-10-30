@@ -51,7 +51,7 @@ public class QOptimizer implements Statement{
 
 	private void changeSelectBody() {
 		String name = ((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getName();
-		((Table)((PlainSelect)this.getSelectBody()).getFromItem()).setName(name.concat("_run_$i"));
+		((Table)((PlainSelect)this.getSelectBody()).getFromItem()).setName(name.concat("_run_1"));
 	}
 
 	private void getAnalysisTimings() {
