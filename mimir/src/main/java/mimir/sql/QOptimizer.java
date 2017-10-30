@@ -20,6 +20,9 @@ import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectBody;
 import net.sf.jsqlparser.statement.select.SubSelect;
+import java.io.StringReader;
+import net.sf.jsqlparser.parser.CCJSqlParser;
+import net.sf.jsqlparser.parser.ParseException;
 
 public class QOptimizer implements Statement{
 	private SelectBody selectBody;
