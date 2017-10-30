@@ -46,6 +46,12 @@ public class QOptimizer implements Statement{
 		getAnalysisTimings();
 		getUncertainAttributes();
 		generateCompileMode();
+		changeSelectBody();
+	}
+
+	private void changeSelectBody() {
+		String name = ((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getName();
+		((Table)((PlainSelect)this.getSelectBody()).getFromItem()).setName(name.concat("_run_$i"));
 	}
 
 	private void getAnalysisTimings() {
