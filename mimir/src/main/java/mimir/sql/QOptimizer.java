@@ -1,4 +1,4 @@
-package bonappetit;
+package mimir.sql;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
