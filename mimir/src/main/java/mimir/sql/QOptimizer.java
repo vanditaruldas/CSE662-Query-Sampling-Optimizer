@@ -3,6 +3,7 @@ package mimir.sql;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,18 +12,18 @@ import java.util.List;
 
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
+import net.sf.jsqlparser.parser.CCJSqlParser;
+import net.sf.jsqlparser.parser.ParseException;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.StatementVisitor;
+import net.sf.jsqlparser.statement.select.Join;
 import net.sf.jsqlparser.statement.select.OrderByElement;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectBody;
 import net.sf.jsqlparser.statement.select.SubSelect;
-import java.io.StringReader;
-import net.sf.jsqlparser.parser.CCJSqlParser;
-import net.sf.jsqlparser.parser.ParseException;
 
 public class QOptimizer implements Statement{
 	private SelectBody selectBody;
@@ -34,6 +35,9 @@ public class QOptimizer implements Statement{
 	private String query;
 	private HashMap<String,HashSet<String>> uncertAtt;
 	private HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>> timings;
+	private boolean singleTable;
+	private String singleTableName;
+	private HashMap<String,String> aliasMap = new HashMap<String,String>();
 	
 	public SelectBody getSelectBody() {
 		return selectBody;
@@ -52,21 +56,45 @@ public class QOptimizer implements Statement{
 			e.printStackTrace();
 		}
 		this.selectBody = ((Select)query).getSelectBody();
+		this.setQuery(this.getSelectBody().toString());
 		this.dataSize = dataSize;
 		this.timeNaive = 0;
 		this.timeTB = 0;
-		timings = new HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>>();
-		uncertAtt = new HashMap<String,HashSet<String>>();
+		this.singleTable = false;
+		this.timings = new HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>>();
+		this.uncertAtt = new HashMap<String,HashSet<String>>();
 		calcClosestUncerPrect(ucPrct);
 		getAnalysisTimings();
 		getUncertainAttributes();
-		generateCompileMode();
 		changeSelectBody();
+		generateCompileMode();
+		
 	}
 
 	private void changeSelectBody() {
 		String name = ((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getName();
-		this.setQuery(this.getSelectBody().toString().replaceAll(name, name.concat("_RUN_1")));
+		if(uncertAtt.containsKey(name))
+			this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
+		
+		if(!((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias().isEmpty())
+			aliasMap.put(((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias(), name);
+		List<Join> tables = ((PlainSelect)this.getSelectBody()).getJoins();
+		if(tables != null)
+		{
+			for(Join j:tables)
+			{
+				name = ((Table)j.getRightItem()).getName();
+				if(uncertAtt.containsKey(name))
+					this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
+				if(!((Table)j.getRightItem()).getAlias().isEmpty())
+					aliasMap.put(((Table)j.getRightItem()).getAlias(), name);
+			}
+		}
+		else
+		{
+			this.setSingleTable(true);
+			this.setSingleTableName(name);
+		}
 	}
 
 	private void getAnalysisTimings() {
@@ -176,21 +204,42 @@ public class QOptimizer implements Statement{
 				if((temp.getLeftExpression() instanceof Column)&&(temp.getRightExpression() instanceof Column))
 				{
 					int joinCnt = 0;
-					if(uncertAtt.get(((Column)temp.getLeftExpression()).getTable().getName()).contains(((Column)temp.getLeftExpression()).getColumnName()))
+					String tablName = aliasMap.get(((Column)temp.getLeftExpression()).getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getLeftExpression()).getColumnName()))
 						joinCnt++;
-					if(uncertAtt.get(((Column)temp.getRightExpression()).getTable().getName()).contains(((Column)temp.getRightExpression()).getColumnName()))
+					tablName = aliasMap.get(((Column)temp.getRightExpression()).getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getRightExpression()).getColumnName()))
 						joinCnt++;
 					computeTime(joinCnt,"join");
 				}
 				else if(temp.getLeftExpression() instanceof Column)
 				{
-					if(uncertAtt.get(((Column)temp.getLeftExpression()).getTable().getName()).contains(((Column)temp.getLeftExpression()).getColumnName()))
-						selectionCnt++;
+					if(this.isSingleTable())
+					{
+						if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(((Column)temp.getLeftExpression()).getColumnName()))
+							selectionCnt++;	
+					}
+					else
+					{
+						String tablName = aliasMap.get(((Column)temp.getLeftExpression()).getTable().getName());
+						if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getLeftExpression()).getColumnName()))
+							selectionCnt++;						
+					}
+
 				}
 				else if(temp.getRightExpression() instanceof Column)
 				{
-					if(uncertAtt.get(((Column)temp.getRightExpression()).getTable().getName()).contains(((Column)temp.getRightExpression()).getColumnName()))
-						selectionCnt++;
+					if(this.isSingleTable())
+					{
+						if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(((Column)temp.getRightExpression()).getColumnName()))
+							selectionCnt++;	
+					}
+					else
+					{
+						String tablName = aliasMap.get(((Column)temp.getRightExpression()).getTable().getName());
+						if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getRightExpression()).getColumnName()))
+							selectionCnt++;
+					}
 				}
 			}
 			computeTime(selectionCnt,"selection");
@@ -201,8 +250,17 @@ public class QOptimizer implements Statement{
 			int grpbyCnt = 0;
 			for(Column att : grpBy)
 			{
-				if(uncertAtt.get(att.getTable().getName()).contains(att.getColumnName()))
-					grpbyCnt++;
+				if(this.isSingleTable())
+				{
+					if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(att.getColumnName()))
+						grpbyCnt++;	
+				}
+				else
+				{
+					String tablName = aliasMap.get(att.getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(att.getColumnName()))
+						grpbyCnt++;
+				}
 			}
 			computeTime(grpbyCnt,"groupby");
 		}
@@ -213,8 +271,17 @@ public class QOptimizer implements Statement{
 			int ordbyCnt=0;
 			for(OrderByElement att:ordBy)
 			{
-				if(uncertAtt.get(((Column)att.getExpression()).getTable().getName()).contains(((Column)att.getExpression()).getColumnName()))
-					ordbyCnt++;
+				if(this.isSingleTable())
+				{
+					if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(((Column)att.getExpression()).getColumnName()))
+						ordbyCnt++;	
+				}
+				else
+				{
+					String tablName = aliasMap.get(((Column)att.getExpression()).getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)att.getExpression()).getColumnName()))
+						ordbyCnt++;
+				}
 			}
 			computeTime(ordbyCnt,"orderby");
 		}
@@ -275,6 +342,23 @@ public class QOptimizer implements Statement{
 	}
 
 	
+	
+	public boolean isSingleTable() {
+		return singleTable;
+	}
+
+	public void setSingleTable(boolean singleTable) {
+		this.singleTable = singleTable;
+	}
+
+	public String getSingleTableName() {
+		return singleTableName;
+	}
+
+	public void setSingleTableName(String singleTableName) {
+		this.singleTableName = singleTableName;
+	}
+
 	public String getQuery() {
 		return query;
 	}
