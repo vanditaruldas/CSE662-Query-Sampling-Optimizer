@@ -19,7 +19,7 @@ import net.sf.jsqlparser.statement.Statement
 import net.sf.jsqlparser.statement.select.{FromItem, PlainSelect, Select, SelectBody}
 
 object ImputeTiming
-  extends VLDB2017TimingTest("tpch50_tpch_UC40", Map("reset" -> "NO", "inline" -> "YES"))//, "initial_db" -> "test/tpch-impute-1g.db"))
+  extends VLDB2017TimingTest("tpch10_tpch_UC1", Map("reset" -> "NO", "inline" -> "YES"))//, "initial_db" -> "test/tpch-impute-1g.db"))
   with BeforeAll
 {
 
@@ -92,40 +92,8 @@ object ImputeTiming
             """*/
             
             s"""
-            SELECT linenumber from lineitem_run_$i where quantity > 49 and returnflag = 'R'  
-            and tax = 0.03 and shipmode = 'FOB' and extendedprice>84000;
-               """
-               ,
-               s"""
-               SELECT linenumber from  lineitem_run_$i where  linestatus = 'F' and tax = 0.03 
-               and extendedprice > 84000 and quantity > 49 and returnflag = 'R' ;
-               """
-               ,
-               s"""
-               SELECT linenumber from  lineitem_run_$i where  linestatus = 'F' and discount = 0.02 and tax = 0.03 and 
-               extendedprice > 84000 and quantity > 49 and returnflag = 'R' ;
-               """
-               ,
-               s"""
-               SELECT orderkey from  lineitem_run_$i where  linestatus = 'F' and tax = 0.03 and 
-               extendedprice > 84000 and quantity > 49 and returnflag = 'R' ;
-               """
-               ,
-               s"""
-               SELECT orderkey from  lineitem_run_$i where  linestatus = 'F' and discount = 0.02 
-               and tax = 0.03 and extendedprice > 84000 and quantity > 49 and returnflag = 'R' ;
-               """
-               ,
-               s"""
-               select AVG(tax) from  lineitem_run_$i where returnflag = 'A' group by quantity;
-               """
-               ,
-               s"""
-               select AVG(tax) from lineitem_run_$i where returnflag = 'A' group by discount;
-               """
-               ,
-               s"""
-               select AVG(tax) from lineitem_run_$i where returnflag = 'A' group by linestatus,discount;
+            SELECT orderkey,discount from  lineitem_run_$i where  linestatus = 'F' and discount > 0.07
+            and tax = 0.03 and extendedprice > 84000 and quantity > 49 and returnflag = 'R' ;
                """
                /*,
                s"""
