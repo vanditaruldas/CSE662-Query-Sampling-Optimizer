@@ -3,6 +3,7 @@ package mimir.sql;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,36 +12,40 @@ import java.util.List;
 
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
+import net.sf.jsqlparser.parser.CCJSqlParser;
+import net.sf.jsqlparser.parser.ParseException;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.StatementVisitor;
+import net.sf.jsqlparser.statement.select.Join;
 import net.sf.jsqlparser.statement.select.OrderByElement;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectBody;
 import net.sf.jsqlparser.statement.select.SubSelect;
-import java.io.StringReader;
-import net.sf.jsqlparser.parser.CCJSqlParser;
-import net.sf.jsqlparser.parser.ParseException;
 
 public class QOptimizer implements Statement{
 	private SelectBody selectBody;
-	private String compileMode;
+	//private String compileMode;
 	private double dataSize;
 	private double ucPrct;
-	private double timeTB;
-	private double timeNaive;
+	//private double timeTB;
+	//private double timeNaive;
 	private String query;
 	private HashMap<String,HashSet<String>> uncertAtt;
-	private HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>> timings;
+	//private HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>> timings;
+	private HashMap<String,HashMap<String,HashMap<Integer,Double>>> timings;
+	//private boolean singleTable;
+	//private String singleTableName;
+	//private HashMap<String,String> aliasMap = new HashMap<String,String>();
 	
 	public SelectBody getSelectBody() {
 		return selectBody;
 	}
 
 	public QOptimizer(SelectBody selectBody, double dataSize, double ucPrct) {
-		StringReader input = new StringReader(selectBody.toString().toUpperCase());
+		/*StringReader input = new StringReader(selectBody.toString().toUpperCase());
 		CCJSqlParser parser = new CCJSqlParser(input);
 		Statement query = null;
 		try
@@ -52,24 +57,99 @@ public class QOptimizer implements Statement{
 			e.printStackTrace();
 		}
 		this.selectBody = ((Select)query).getSelectBody();
+		this.setQuery(this.getSelectBody().toString());*/
+		this.selectBody = selectBody;
+		this.setQuery(selectBody.toString().toUpperCase());
 		this.dataSize = dataSize;
-		this.timeNaive = 0;
-		this.timeTB = 0;
-		timings = new HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>>();
-		uncertAtt = new HashMap<String,HashSet<String>>();
+		//this.timeNaive = 0;
+		//this.timeTB = 0;
+		//this.singleTable = false;
+		//this.timings = new HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>>();
+		this.timings = new HashMap<String,HashMap<String,HashMap<Integer,Double>>>();
+		this.uncertAtt = new HashMap<String,HashSet<String>>();
 		calcClosestUncerPrect(ucPrct);
-		getAnalysisTimings();
+		//getAnalysisTimings();
 		getUncertainAttributes();
-		generateCompileMode();
 		changeSelectBody();
+		generateAnalysisTimings();
+		//generateCompileMode();
+		
 	}
 
 	private void changeSelectBody() {
-		String name = ((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getName();
-		this.setQuery(this.getSelectBody().toString().replaceAll(name, name.concat("_RUN_1")));
+		String name = ((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getName().toUpperCase();
+		if(uncertAtt.containsKey(name))
+			this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
+		
+		/*if(!((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias().isEmpty())
+			aliasMap.put(((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias(), name);*/
+		List<Join> tables = ((PlainSelect)this.getSelectBody()).getJoins();
+		if(tables != null)
+		{
+			for(Join j:tables)
+			{
+				name = ((Table)j.getRightItem()).getName().toUpperCase();
+				if(uncertAtt.containsKey(name))
+					this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
+				/*if(!((Table)j.getRightItem()).getAlias().isEmpty())
+					aliasMap.put(((Table)j.getRightItem()).getAlias(), name);*/
+			}
+		}
+		else
+		{
+			/*this.setSingleTable(true);
+			this.setSingleTableName(name);*/
+		}
+		StringReader input = new StringReader(this.getQuery());
+		CCJSqlParser parser = new CCJSqlParser(input);
+		Statement query = null;
+		try
+		{
+			query = parser.Statement();
+		}
+		catch (ParseException e)
+		{
+			e.printStackTrace();
+		}
+		this.setSelectBody(((Select)query).getSelectBody());
 	}
-
-	private void getAnalysisTimings() {
+	
+	private void generateAnalysisTimings() {
+		BufferedReader reader;
+		try 
+		{
+			reader = new BufferedReader(new FileReader("test/UncertaintyList/timings.txt"));
+			String line;
+			while ((line = reader.readLine()) != null)
+			{
+				String[] split = line.split(" ");
+				if(Double.parseDouble(split[3]) == this.getUcPrct())
+				{
+					ArrayList<Double> attList = new ArrayList<Double>();
+					for(int i=4;i<split.length;i++)
+						attList.add(Double.parseDouble(split[i]));
+	
+					if(!timings.containsKey(split[0]))
+					{
+						timings.put(split[0], new HashMap<String,HashMap<Integer,Double>>());
+					}
+					if(!timings.get(split[0]).containsKey(split[1]))
+					{
+						timings.get(split[0]).put(split[1], new HashMap<Integer,Double>());
+					}
+					double y = (new BigDecimal((attList.get(1)-attList.get(0))/(attList.get(3)-attList.get(2))).multiply(new BigDecimal(this.getDataSize()-attList.get(2)))).add(new BigDecimal(attList.get(0))).doubleValue();		
+					timings.get(split[0]).get(split[1]).put(Integer.parseInt(split[2]), y);
+				}
+			}
+			reader.close();	
+		} 
+		catch (IOException e) 
+		{
+			e.printStackTrace();
+		}
+	}
+	
+	/*private void getAnalysisTimings() {
 		BufferedReader reader;
 		try 
 		{
@@ -102,7 +182,7 @@ public class QOptimizer implements Statement{
 		{
 			e.printStackTrace();
 		}	
-	}
+	}*/
 
 	private void calcClosestUncerPrect(double ucPrct2) {
 		Double[] list= {1.00,5.00,10.00};
@@ -139,7 +219,7 @@ public class QOptimizer implements Statement{
 		}
 	}
 
-	private void generateCompileMode() {
+	/*private void generateCompileMode() {
 		
 		evalModeTimings((PlainSelect)this.getSelectBody());
 		if((getTimeTB() == getTimeNaive())&&(getTimeTB() == 0))
@@ -176,21 +256,42 @@ public class QOptimizer implements Statement{
 				if((temp.getLeftExpression() instanceof Column)&&(temp.getRightExpression() instanceof Column))
 				{
 					int joinCnt = 0;
-					if(uncertAtt.get(((Column)temp.getLeftExpression()).getTable().getName()).contains(((Column)temp.getLeftExpression()).getColumnName()))
+					String tablName = aliasMap.get(((Column)temp.getLeftExpression()).getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getLeftExpression()).getColumnName()))
 						joinCnt++;
-					if(uncertAtt.get(((Column)temp.getRightExpression()).getTable().getName()).contains(((Column)temp.getRightExpression()).getColumnName()))
+					tablName = aliasMap.get(((Column)temp.getRightExpression()).getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getRightExpression()).getColumnName()))
 						joinCnt++;
 					computeTime(joinCnt,"join");
 				}
 				else if(temp.getLeftExpression() instanceof Column)
 				{
-					if(uncertAtt.get(((Column)temp.getLeftExpression()).getTable().getName()).contains(((Column)temp.getLeftExpression()).getColumnName()))
-						selectionCnt++;
+					if(this.isSingleTable())
+					{
+						if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(((Column)temp.getLeftExpression()).getColumnName()))
+							selectionCnt++;	
+					}
+					else
+					{
+						String tablName = aliasMap.get(((Column)temp.getLeftExpression()).getTable().getName());
+						if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getLeftExpression()).getColumnName()))
+							selectionCnt++;						
+					}
+
 				}
 				else if(temp.getRightExpression() instanceof Column)
 				{
-					if(uncertAtt.get(((Column)temp.getRightExpression()).getTable().getName()).contains(((Column)temp.getRightExpression()).getColumnName()))
-						selectionCnt++;
+					if(this.isSingleTable())
+					{
+						if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(((Column)temp.getRightExpression()).getColumnName()))
+							selectionCnt++;	
+					}
+					else
+					{
+						String tablName = aliasMap.get(((Column)temp.getRightExpression()).getTable().getName());
+						if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getRightExpression()).getColumnName()))
+							selectionCnt++;
+					}
 				}
 			}
 			computeTime(selectionCnt,"selection");
@@ -201,8 +302,17 @@ public class QOptimizer implements Statement{
 			int grpbyCnt = 0;
 			for(Column att : grpBy)
 			{
-				if(uncertAtt.get(att.getTable().getName()).contains(att.getColumnName()))
-					grpbyCnt++;
+				if(this.isSingleTable())
+				{
+					if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(att.getColumnName()))
+						grpbyCnt++;	
+				}
+				else
+				{
+					String tablName = aliasMap.get(att.getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(att.getColumnName()))
+						grpbyCnt++;
+				}
 			}
 			computeTime(grpbyCnt,"groupby");
 		}
@@ -213,8 +323,17 @@ public class QOptimizer implements Statement{
 			int ordbyCnt=0;
 			for(OrderByElement att:ordBy)
 			{
-				if(uncertAtt.get(((Column)att.getExpression()).getTable().getName()).contains(((Column)att.getExpression()).getColumnName()))
-					ordbyCnt++;
+				if(this.isSingleTable())
+				{
+					if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(((Column)att.getExpression()).getColumnName()))
+						ordbyCnt++;	
+				}
+				else
+				{
+					String tablName = aliasMap.get(((Column)att.getExpression()).getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)att.getExpression()).getColumnName()))
+						ordbyCnt++;
+				}
 			}
 			computeTime(ordbyCnt,"orderby");
 		}
@@ -272,18 +391,51 @@ public class QOptimizer implements Statement{
 			this.setTimeNaive(Double.MAX_VALUE);
 			this.setTimeTB(Double.MAX_VALUE);
 		}
-	}
+	}*/
 
 	
+	
+	/*public boolean isSingleTable() {
+		return singleTable;
+	}
+
+	public void setSingleTable(boolean singleTable) {
+		this.singleTable = singleTable;
+	}
+
+	public String getSingleTableName() {
+		return singleTableName;
+	}
+
+	public void setSingleTableName(String singleTableName) {
+		this.singleTableName = singleTableName;
+	}*/
+
 	public String getQuery() {
 		return query;
+	}
+
+	public HashMap<String, HashSet<String>> getUncertAtt() {
+		return uncertAtt;
+	}
+
+	public void setUncertAtt(HashMap<String, HashSet<String>> uncertAtt) {
+		this.uncertAtt = uncertAtt;
+	}
+
+	public HashMap<String, HashMap<String, HashMap<Integer, Double>>> getTimings() {
+		return timings;
+	}
+
+	public void setTimings(HashMap<String, HashMap<String, HashMap<Integer, Double>>> timings) {
+		this.timings = timings;
 	}
 
 	public void setQuery(String query) {
 		this.query = query;
 	}
 
-	public double getTimeTB() {
+	/*public double getTimeTB() {
 		return timeTB;
 	}
 
@@ -297,19 +449,19 @@ public class QOptimizer implements Statement{
 
 	public void setTimeNaive(double timeNaive) {
 		this.timeNaive = timeNaive;
-	}
+	}*/
 
 	public void setSelectBody(SelectBody selectBody) {
 		this.selectBody = selectBody;
 	}
 
-	public String getCompileMode() {
+	/*public String getCompileMode() {
 		return compileMode;
 	}
 
 	public void setCompileMode(String compileMode) {
 		this.compileMode = compileMode;
-	}
+	}*/
 
 	public double getDataSize() {
 		return dataSize;
