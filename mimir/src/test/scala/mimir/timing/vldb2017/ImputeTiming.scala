@@ -19,7 +19,7 @@ import net.sf.jsqlparser.statement.Statement
 import net.sf.jsqlparser.statement.select.{FromItem, PlainSelect, Select, SelectBody}
 
 object ImputeTiming
-  extends VLDB2017TimingTest("tpch50_tpch_UC40", Map("reset" -> "NO", "inline" -> "YES"))//, "initial_db" -> "test/tpch-impute-1g.db"))
+  extends VLDB2017TimingTest("tpch10_tpch_UC1", Map("reset" -> "NO", "inline" -> "YES"))//, "initial_db" -> "test/tpch-impute-1g.db"))
   with BeforeAll
 {
 
@@ -47,7 +47,8 @@ object ImputeTiming
   val relevantTables = Seq(
     ("LINEITEM", Seq("linestatus","discount","orderkey")),
     //("LINEITEM", Seq("shipdate")),
-    ("ORDERS", Seq("orderdate"))
+    ("ORDERS", Seq("custkey"))
+    //("ORDERS", Seq("orderdate"))
   )
 
   val relevantIndexes = Seq(
@@ -66,31 +67,27 @@ object ImputeTiming
       Fragments.foreach(1 to 1){ i =>
 
         val TPCHQueries = 
-          Seq(
+          Seq(        
             /*
             s"""
-            SELECT linenumber from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by linenumber;
-            """,
-            s"""
-            select discount from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by discount;
+            select p.type from lineitem_run_$i as l,part as p where l.partkey = p.partkey and p.mfgr = 'Manufacturer#1' 
+            and p.brand = 'Brand#13'and  p.size = 50 and l.tax = 0.02;
             """
-            ,
-            s"""
-            select discount from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by discount, linestatus;
-            """
-            */
-            /*
+            ,*/
             s"""
             select l.partkey,l.quantity from lineitem_run_$i as l,orders_run_$i as o 
             where l.orderkey = o.orderkey and o.orderpriority = '1-URGENT' and o.totalprice > 430000 and o.orderstatus = 'F';
             """
+            /*
             ,
+            
             s"""
             SELECT l.orderkey
  FROM lineitem_run_$i as l, orders_run_$i as o
  WHERE o.orderdate = l.shipdate and l.quantity = 50 and l.returnflag = 'R' and l.discount = 0.1 and l.extendedprice>95000;
-            """*/
-            
+            """
+            */
+            /*,
             s"""
             SELECT linenumber from lineitem_run_$i where quantity > 49 and returnflag = 'R'  
             and tax = 0.03 and shipmode = 'FOB' and extendedprice>84000;
@@ -127,10 +124,16 @@ object ImputeTiming
                s"""
                select AVG(tax) from lineitem_run_$i where returnflag = 'A' group by linestatus,discount;
                """
-               /*,
+               ,
                s"""
-               select p.type from lineitem_run_$i as l,part as p where l.partkey = p.partkey and p.mfgr = 'Manufacturer#1' 
-               and p.brand = 'Brand#13'and  p.size = 50 and l.tax = 0.02;
+               SELECT linenumber from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by linenumber;
+               """,
+               s"""
+               select discount from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by discount;
+               """
+               ,
+               s"""
+               select discount from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by discount, linestatus;
                """
                */
             // ,

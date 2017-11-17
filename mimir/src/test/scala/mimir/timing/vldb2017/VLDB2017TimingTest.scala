@@ -24,10 +24,10 @@ abstract class VLDB2017TimingTest(dbName: String, config: Map[String,String])
   val timeout: Duration
   val useMaterialized: Boolean
   val random = new Random(42)
-  val tupleBundle = new TupleBundle( (0 until 10).map { _ => random.nextLong })
-  val tupleBundle = new TupleBundleCrossProduct( (0 until 10).map { _ => random.nextLong })
-  val naiveMode = new NaiveMode((0 until 10).map { _ => random.nextLong })
   val sampler     = new SampleRows( (0 until 10).map { _ => random.nextLong })
+  val tupleBundle = new TupleBundleCrossProduct( (0 until 10).map { _ => random.nextLong })
+  val interleaveMode = new InterleaveMode((0 until 10).map { _ => random.nextLong })
+  val naiveMode = new NaiveMode((0 until 10).map { _ => random.nextLong })
 
 
   def loadTable(tableFields:(String, String, Type, Double)) =
@@ -249,7 +249,7 @@ abstract class VLDB2017TimingTest(dbName: String, config: Map[String,String])
           println(s"SAMPLE QUERY $idx:\n$queryString")
           val ((rows, backendTime), totalTime) = time {
              var x = 0
-             val backendTime = db.query(queryString, /*tupleBundle*/naiveMode) { results =>
+             val backendTime = db.query(queryString, interleaveMode) { results =>
                time { results.foreach { row => (x = x + 1) } }
              }
              (x, backendTime._2)

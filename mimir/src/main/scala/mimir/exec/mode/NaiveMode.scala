@@ -119,15 +119,18 @@ class NaiveMode (seeds: Seq[Long] = (0l until 10l).toSeq)
       }
 
       case Select(condition, oldChild) => {
+        //println(query+"\n"+models)
         val (newChild, nonDeterministicInput) = ReplaceMissingLensWithSampler(oldChild, models,shift)
-
+        println(nonDeterministicInput)
         ( Select(condition, newChild), nonDeterministicInput )
       }
 
       case Join(lhsOldChild, rhsOldChild) => {
+        //println(query+"\n"+models)
         val (lhsNewChild, lhsNonDeterministicInput) = ReplaceMissingLensWithSampler(lhsOldChild, models,shift)
+        println(lhsNonDeterministicInput)
         val (rhsNewChild, rhsNonDeterministicInput) = ReplaceMissingLensWithSampler(rhsOldChild, models,shift)
-
+        println(rhsNonDeterministicInput)
 
         (OperatorUtils.makeSafeJoin(lhsNewChild,rhsNewChild)_1, lhsNonDeterministicInput ++ rhsNonDeterministicInput)
       }
@@ -149,8 +152,9 @@ class NaiveMode (seeds: Seq[Long] = (0l until 10l).toSeq)
       }
 
       case Aggregate(gbColumns, aggColumns, oldChild) => {
+        //println(query+"\n"+models)
         val (newChild, nonDeterministicInput) = ReplaceMissingLensWithSampler(oldChild, models,shift)
-
+        println(nonDeterministicInput)
         (
             Aggregate(gbColumns++Seq(Var(WorldBits.columnName)), aggColumns,
               newChild),nonDeterministicInput
@@ -166,7 +170,9 @@ class NaiveMode (seeds: Seq[Long] = (0l until 10l).toSeq)
       }
 
       case Sort(sortCols,oldChild)=>{
+        //println(query+"\n"+models)
         val (newChild, nonDeterministicInput) = ReplaceMissingLensWithSampler(oldChild, models,shift)
+        println(nonDeterministicInput)
         (
           Sort(sortCols,newChild),nonDeterministicInput
         )

@@ -227,6 +227,7 @@ object Mimir extends LazyLogging {
     }.toSeq
     relevantTables.foreach(createMVLens(_))
     val random = new Random(42)
+    println(s"Compile Mode: $compileMode")
     if (compileMode.equals("TB")) {
       val tupleBundle = new TupleBundle( (0 until 10).map { _ => random.nextLong })
       TimeUtils.monitor("QUERY", output.print(_)) {

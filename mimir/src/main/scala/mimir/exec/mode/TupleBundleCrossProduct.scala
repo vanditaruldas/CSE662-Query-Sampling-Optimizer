@@ -82,7 +82,7 @@ class TupleBundleCrossProduct(seeds: Seq[Long] = (0l until 10l).toSeq)
     query = db.views.resolve(query)
 
 
-    println(query)
+    //println(query)
     ( 
       query, 
       TupleBundle.splitColumnNames(queryRaw.columnNames, nonDeterministicColumns, seeds.length),
