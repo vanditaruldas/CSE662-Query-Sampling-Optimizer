@@ -73,12 +73,12 @@ object ImputeTiming
             select p.type from lineitem_run_$i as l,part as p where l.partkey = p.partkey and p.mfgr = 'Manufacturer#1' 
             and p.brand = 'Brand#13'and  p.size = 50 and l.tax = 0.02;
             """
-            ,*/
+            ,
             s"""
             select l.partkey,l.quantity from lineitem_run_$i as l,orders_run_$i as o 
             where l.orderkey = o.orderkey and o.orderpriority = '1-URGENT' and o.totalprice > 430000 and o.orderstatus = 'F';
             """
-            /*
+            
             ,
             
             s"""
@@ -103,7 +103,18 @@ object ImputeTiming
                s"""
                select discount from lineitem_run_$i  where quantity > 49 and returnflag = 'R'  and shipmode = 'FOB' and extendedprice>84000 order by discount, linestatus;
                """
-               */
+               
+               s"""
+               select AVG(tax) from  lineitem_run_$i where returnflag = 'A' group by quantity;
+               """
+               ,*/
+               s"""
+               select AVG(tax) from lineitem_run_$i where returnflag = 'A' group by discount;
+               """
+               /*,
+               s"""
+               select AVG(tax) from lineitem_run_$i where returnflag = 'A' group by linestatus,discount;
+               """*/
             // ,
             // s"""
             //   -- TPC-H Query 3

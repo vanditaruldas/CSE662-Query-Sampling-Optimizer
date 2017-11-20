@@ -7,6 +7,7 @@ import java.util.Random
 import mimir.ctables._
 import mimir.parser._
 import mimir.sql._
+import mimir.provenance._
 import mimir.util.{TimeUtils,ExperimentalOptions,LineReaderInputSource,PythonProcess}
 import mimir.algebra._
 import mimir.statistics.DetectSeries
@@ -44,6 +45,7 @@ object Mimir extends LazyLogging {
   var db: Database = null;
   lazy val terminal: Terminal = TerminalBuilder.terminal()
   var output: OutputFormat = DefaultOutputFormat
+  var relevantTables: Seq[(String,Array[String])] =null;
 
   def main(args: Array[String]) = 
   {
@@ -220,25 +222,50 @@ object Mimir extends LazyLogging {
     val query = db.sql.convert(qOpt.getSelectBody()) // Need to change selectBody table name to add "_run_1"
     val size = qOpt.getDataSize()
     val uncertainty = qOpt.getUcPrct()
-    val compileMode = qOpt.getCompileMode()
-    val relevantTables = Source.fromFile("test/UncertaintyList/UncertaintyList.txt").getLines.toArray.map{ line => 
+    val timings = qOpt.getTimings()
+    relevantTables = Source.fromFile("test/UncertaintyList/UncertaintyList.txt").getLines.toArray.map{ line => 
       val w = line.split(" ")
       (w(0),w.tail)
     }.toSeq
     relevantTables.foreach(createMVLens(_))
     val random = new Random(42)
-    println(s"Compile Mode: $compileMode")
-    if (compileMode.equals("TB")) {
-      val tupleBundle = new TupleBundle( (0 until 10).map { _ => random.nextLong })
-      TimeUtils.monitor("QUERY", output.print(_)) {
-        db.query(query, tupleBundle) { output.print(_) }
+    val approach = CostOptimizer.getCompileMode(db,query,timings)
+    var hybrid = false
+    char c = approach(0)
+    val stack = new scala.collection.mutable.Stack[String]
+    for(val ch : approach) {
+      if(ch=='0') {
+        stack.push("TB")
+      } else {
+        stack.push("IL")
       }
-    } else {
-      val naiveMode = new NaiveMode((0 until 10).map { _ => random.nextLong })
-      TimeUtils.monitor("QUERY", output.print(_)) {
-        db.query(query, naiveMode) { output.print(_) }
+      if(ch!=c) {
+        hybrid = true
       }
     }
+    if(hybrid) {
+      // TODO
+    } else {
+      if (ch=='0') { //TupleBundle
+        val tupleBundle = new TupleBundle( (0 until 10).map { _ => random.nextLong })
+        TimeUtils.monitor("QUERY", output.print(_)) {
+          db.query(query, tupleBundle) { output.print(_) }
+        }
+      } else if (ch=='N'){ //Naive
+        val naiveMode = new NaiveMode((0 until 10).map { _ => random.nextLong })
+        TimeUtils.monitor("QUERY", output.print(_)) {
+          db.query(query, naiveMode) { output.print(_) }
+        }
+      }
+      else if (ch=='2'){ //Interleave
+        val interleaveMode = new InterleaveMode((0 until 10).map { _ => random.nextLong })
+        TimeUtils.monitor("QUERY", output.print(_)) {
+          db.query(query, interleaveMode) { output.print(_) }
+        }
+      }
+    }
+    println(s"Compile Mode: $compileMode")
+    
     output.print("Size of Dataset: "+size+"\nAmount of Uncertainty: "+uncertainty)
   }
 
@@ -322,8 +349,9 @@ object Mimir extends LazyLogging {
       """));
     }
   }
-
 }
+
+
 
 class MimirConfig(arguments: Seq[String]) extends ScallopConf(arguments)
 {

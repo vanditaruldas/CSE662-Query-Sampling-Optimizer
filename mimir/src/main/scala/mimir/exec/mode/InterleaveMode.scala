@@ -13,6 +13,7 @@ import mimir.models.Model
 import com.typesafe.scalalogging.slf4j.LazyLogging
 import mimir.parser.MimirJSqlParser
 import net.sf.jsqlparser.statement.Statement
+import scala.io.Source
 
 /**
   * TupleBundles ( http://dl.acm.org/citation.cfm?id=1376686 ) are a tactic for
@@ -39,6 +40,10 @@ class InterleaveMode(seeds: Seq[Long] = (0l until 10l).toSeq)
     with LazyLogging
 {
   var limit = false
+  val relevantTablesMap = Source.fromFile("test/UncertaintyList/UncertaintyList.txt").getLines.toArray.map{ line => 
+    val w = line.split(" ")
+    (w(0),w.tail)
+  }.toMap
   type MetadataT =
     (
       Set[String],   // Nondeterministic column set
@@ -300,7 +305,6 @@ class InterleaveMode(seeds: Seq[Long] = (0l until 10l).toSeq)
       }
 
       case Aggregate(gbColumns, aggColumns, oldChild) => {
-        println(query)
         val (newChild, nonDeterministicInput) = compileInterleaved(oldChild, db)
         println(gbColumns+" "+aggColumns+" "+oldChild)
         
