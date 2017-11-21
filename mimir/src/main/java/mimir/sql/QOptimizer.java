@@ -8,7 +8,9 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import net.sf.jsqlparser.expression.BinaryExpression;
 import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
@@ -36,16 +38,18 @@ public class QOptimizer implements Statement{
 	private HashMap<String,HashSet<String>> uncertAtt;
 	//private HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>> timings;
 	private HashMap<String,HashMap<String,HashMap<Integer,Double>>> timings;
-	//private boolean singleTable;
-	//private String singleTableName;
-	//private HashMap<String,String> aliasMap = new HashMap<String,String>();
+	private boolean singleTable;
+	private String singleTableName;
+	private HashMap<String,String> aliasMap = new HashMap<String,String>();
+	private boolean IL;
+	private HashSet<String> uncertSet;
 	
 	public SelectBody getSelectBody() {
 		return selectBody;
 	}
 
 	public QOptimizer(SelectBody selectBody, double dataSize, double ucPrct) {
-		/*StringReader input = new StringReader(selectBody.toString().toUpperCase());
+		StringReader input = new StringReader(selectBody.toString().toUpperCase());
 		CCJSqlParser parser = new CCJSqlParser(input);
 		Statement query = null;
 		try
@@ -57,49 +61,64 @@ public class QOptimizer implements Statement{
 			e.printStackTrace();
 		}
 		this.selectBody = ((Select)query).getSelectBody();
-		this.setQuery(this.getSelectBody().toString());*/
-		this.selectBody = selectBody;
-		this.setQuery(selectBody.toString().toUpperCase());
+		this.setQuery(this.getSelectBody().toString());
+		//this.selectBody = selectBody;
+		//this.setQuery(selectBody.toString().toUpperCase());
 		this.dataSize = dataSize;
 		//this.timeNaive = 0;
 		//this.timeTB = 0;
-		//this.singleTable = false;
+		this.singleTable = false;
+		this.IL=false;
 		//this.timings = new HashMap<String,HashMap<String,HashMap<Integer,HashMap<Double,ArrayList<Double>>>>>();
 		this.timings = new HashMap<String,HashMap<String,HashMap<Integer,Double>>>();
 		this.uncertAtt = new HashMap<String,HashSet<String>>();
+		this.uncertSet = new HashSet<String>();
 		calcClosestUncerPrect(ucPrct);
 		//getAnalysisTimings();
 		getUncertainAttributes();
-		changeSelectBody();
+		changeQuery();
 		generateAnalysisTimings();
+		checkJoin((PlainSelect)this.getSelectBody());
+		updateSelectBody();
+		generateuncertSet();
 		//generateCompileMode();
 		
 	}
-
-	private void changeSelectBody() {
-		String name = ((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getName().toUpperCase();
-		if(uncertAtt.containsKey(name))
-			this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
-		
-		/*if(!((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias().isEmpty())
-			aliasMap.put(((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias(), name);*/
-		List<Join> tables = ((PlainSelect)this.getSelectBody()).getJoins();
-		if(tables != null)
+	
+	private void generateuncertSet() {
+		if(this.isSingleTable())
 		{
-			for(Join j:tables)
+			if(this.uncertAtt.containsKey(this.getSingleTableName()))
 			{
-				name = ((Table)j.getRightItem()).getName().toUpperCase();
-				if(uncertAtt.containsKey(name))
-					this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
-				/*if(!((Table)j.getRightItem()).getAlias().isEmpty())
-					aliasMap.put(((Table)j.getRightItem()).getAlias(), name);*/
+				Iterator<String> temp = this.uncertAtt.get(this.getSingleTableName()).iterator();
+				while(temp.hasNext())
+				{
+					this.uncertSet.add(this.getSingleTableName().concat("_RUN_1_").concat(temp.next()));
+				}
 			}
 		}
 		else
 		{
-			/*this.setSingleTable(true);
-			this.setSingleTableName(name);*/
+			 Iterator<String> temp = aliasMap.keySet().iterator();
+			 while(temp.hasNext())
+			 {
+				 String al = temp.next();
+				 HashSet<String> set = this.uncertAtt.get(aliasMap.get(al));
+				 if(set!=null)
+				 {
+					 Iterator<String> iter = set.iterator();
+					 while(iter.hasNext())
+					 {
+						 this.uncertSet.add(al.concat("_").concat(iter.next()));
+					 }
+				 }
+			 }
+			 
 		}
+	}
+
+	private void updateSelectBody()
+	{
 		StringReader input = new StringReader(this.getQuery());
 		CCJSqlParser parser = new CCJSqlParser(input);
 		Statement query = null;
@@ -112,6 +131,32 @@ public class QOptimizer implements Statement{
 			e.printStackTrace();
 		}
 		this.setSelectBody(((Select)query).getSelectBody());
+	}
+
+	private void changeQuery() {
+		String name = ((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getName();
+		if(uncertAtt.containsKey(name))
+			this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
+		
+		if(((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias() != null)
+			aliasMap.put(((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias(), name);
+		List<Join> tables = ((PlainSelect)this.getSelectBody()).getJoins();
+		if(tables != null)
+		{
+			for(Join j:tables)
+			{
+				name = ((Table)j.getRightItem()).getName().toUpperCase();
+				if(uncertAtt.containsKey(name))
+					this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
+				if(((Table)j.getRightItem()).getAlias() != null)
+					aliasMap.put(((Table)j.getRightItem()).getAlias(), name);
+			}
+		}
+		else
+		{
+			this.setSingleTable(true);
+			this.setSingleTableName(name);
+		}
 	}
 	
 	private void generateAnalysisTimings() {
@@ -216,6 +261,44 @@ public class QOptimizer implements Statement{
 		catch (IOException e) 
 		{
 			e.printStackTrace();
+		}
+	}
+	
+	private void checkJoin(PlainSelect select)
+	{
+		if(this.isSingleTable())
+			return;
+		if(!(select.getFromItem() instanceof Table))
+			checkJoin((PlainSelect)((SubSelect)select.getFromItem()).getSelectBody());
+		
+		BinaryExpression temp;
+		if(select.getWhere() != null)
+		{
+			BinaryExpression e = (BinaryExpression)select.getWhere();
+			boolean cont= true;
+			while(cont)
+			{
+				if(e instanceof AndExpression)
+				{
+					temp = (BinaryExpression) e.getRightExpression();
+					e = (BinaryExpression) e.getLeftExpression();
+				}
+				else
+				{
+					temp = e;
+					cont = false;
+				}
+				
+				if((temp.getLeftExpression() instanceof Column)&&(temp.getRightExpression() instanceof Column))
+				{
+					String tablName = aliasMap.get(((Column)temp.getLeftExpression()).getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getLeftExpression()).getColumnName()))
+						this.setIL(true);
+					tablName = aliasMap.get(((Column)temp.getRightExpression()).getTable().getName());
+					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getRightExpression()).getColumnName()))
+						this.setIL(true);
+				}
+			}
 		}
 	}
 
@@ -395,8 +478,16 @@ public class QOptimizer implements Statement{
 
 	
 	
-	/*public boolean isSingleTable() {
+	public boolean isSingleTable() {
 		return singleTable;
+	}
+
+	public boolean isIL() {
+		return IL;
+	}
+
+	public void setIL(boolean iL) {
+		IL = iL;
 	}
 
 	public void setSingleTable(boolean singleTable) {
@@ -409,7 +500,7 @@ public class QOptimizer implements Statement{
 
 	public void setSingleTableName(String singleTableName) {
 		this.singleTableName = singleTableName;
-	}*/
+	}
 
 	public String getQuery() {
 		return query;
