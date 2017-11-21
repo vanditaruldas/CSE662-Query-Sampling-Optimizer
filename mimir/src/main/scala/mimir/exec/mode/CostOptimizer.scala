@@ -11,9 +11,11 @@ import mimir.models.Model
 import com.typesafe.scalalogging.slf4j.LazyLogging
 import mimir.parser.MimirJSqlParser
 import net.sf.jsqlparser.statement.Statement
+import net.sf.jsqlparser.schema.Column
 import scala.io.Source
 import java.util.Random
 import java.util.HashMap
+import java.util.HashSet
 import scala.collection.mutable.StringBuilder
 
 object CostOptimizer{
@@ -28,6 +30,7 @@ object CostOptimizer{
   
   var hybridTimings =Seq[(Double,Double,Double)]()
   var timings : HashMap[String, HashMap[String, HashMap[Integer, java.lang.Double]]] = null
+  var uncertSet : HashSet[String] = null
   var naiveTiming : Double = 0.0
   var minVal = java.lang.Double.MAX_VALUE
   var approach = new StringBuilder("")
@@ -71,11 +74,13 @@ object CostOptimizer{
     }
   }
   
-  def getCompileMode(db: Database,queryRaw: Operator, timingsF: HashMap[String, HashMap[String, HashMap[Integer, java.lang.Double]]]) : String =
+  def getCompileMode(db: Database,queryRaw: Operator, timingsF: HashMap[String, HashMap[String, HashMap[Integer, java.lang.Double]]], UCSet : HashSet[String]) : String =
   {  
     hybridTimings = Seq[(Double,Double,Double)]()
     var query = queryRaw
     timings = timingsF
+    uncertSet = UCSet
+    println(uncertSet)
     val (withProvenance, provenanceCols) = Provenance.compile(query)
     query = withProvenance
     val (compiled, nonDeterministicColumns) = compileTimings(query, db)
@@ -142,8 +147,23 @@ object CostOptimizer{
       }
 
       case Select(condition, oldChild) => {
+        println("children: "+condition.children)
         //println("\nselect columns: "+query.expressions)
-        var numUcCols = 0 //TODO
+        var numUcCols = 0
+        condition.children.map {
+          expr => {
+            if(!(expr.children(0).isInstanceOf[Var] && expr.children(1).isInstanceOf[Var])) {
+              if(expr.children(0).isInstanceOf[Var]) {
+                if(uncertSet.contains(expr.children(0).toString)) numUcCols+=1
+              }
+              else if(expr.children(1).isInstanceOf[Var]) {
+                if(uncertSet.contains(expr.children(1).toString)) numUcCols+=1
+              }
+            }
+          }
+        }
+        println("Select "+numUcCols)
+        if(numUcCols>2) numUcCols = 2
         var tb = java.lang.Double.MAX_VALUE
         var il = java.lang.Double.MAX_VALUE
         var naive = java.lang.Double.MAX_VALUE
@@ -236,6 +256,14 @@ object CostOptimizer{
 
       case Aggregate(gbColumns, aggColumns, oldChild) => {
         var numUcCols = 0 //TODO
+        gbColumns.map {
+          col => {
+            println(col)
+            if(uncertSet.contains(col.toString)) numUcCols+=1
+          }
+        }
+        println("Aggregate "+numUcCols+" GBCols: "+gbColumns)
+        if(numUcCols>2) numUcCols = 2
         var tb = java.lang.Double.MAX_VALUE
         var il = java.lang.Double.MAX_VALUE
         var naive = java.lang.Double.MAX_VALUE
@@ -299,11 +327,20 @@ object CostOptimizer{
 
       case Sort(sortCols,oldChild)=>{
         var numUcCols = 0 //TODO
+        sortCols.map {
+          col => {
+            println(col.expression)
+            if(uncertSet.contains(col.expression.toString)) numUcCols+=1
+          }
+        }
+        println("Sort "+numUcCols+" Cols: "+sortCols)
+        if(numUcCols>2) numUcCols = 2
         var tb = java.lang.Double.MAX_VALUE
         var il = java.lang.Double.MAX_VALUE
         var naive = java.lang.Double.MAX_VALUE
         if(timings.containsKey("orderby")) {
           val timingsSel = timings.get("orderby")
+          println(timingsSel)
           if(timingsSel.containsKey("TB")) {
             tb=timingsSel.get("TB").get(numUcCols)
           }
@@ -312,6 +349,7 @@ object CostOptimizer{
           }
           if(timingsSel.containsKey("IL")) {
             il=timingsSel.get("IL").get(numUcCols)
+            println(numUcCols+" "+il)
           }
         } 
         

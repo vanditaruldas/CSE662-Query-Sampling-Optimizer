@@ -78,8 +78,10 @@ object ImputeTiming
             select l.partkey,l.quantity from lineitem_run_$i as l,orders_run_$i as o 
             where l.orderkey = o.orderkey and o.orderpriority = '1-URGENT' and o.totalprice > 430000 and o.orderstatus = 'F';
             """
-            
-            ,
+            ,*/s"""
+            select l.partkey,l.quantity from lineitem_run_$i as l,orders_run_$i as o where l.orderkey = o.orderkey and o.orderpriority = '1-URGENT' and o.totalprice > 430000 and o.orderstatus = 'F';
+            """
+            /*,
             
             s"""
             SELECT l.orderkey
@@ -107,11 +109,11 @@ object ImputeTiming
                s"""
                select AVG(tax) from  lineitem_run_$i where returnflag = 'A' group by quantity;
                """
-               ,*/
+               ,
                s"""
                select AVG(tax) from lineitem_run_$i where returnflag = 'A' group by discount;
                """
-               /*,
+               ,
                s"""
                select AVG(tax) from lineitem_run_$i where returnflag = 'A' group by linestatus,discount;
                """*/

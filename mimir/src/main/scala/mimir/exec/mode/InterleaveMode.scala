@@ -250,9 +250,7 @@ class InterleaveMode(seeds: Seq[Long] = (0l until 10l).toSeq)
       }
 
       case Select(condition, oldChild) => {
-        println(condition)
         val (newChild, nonDeterministicInput) = compileInterleaved(oldChild, db)
-        println(nonDeterministicInput)
 //          ( Select(ExpressionUtils.makeAnd(condition,ExpressionUtils.makeOr(ExpressionUtils.makeOr(ExpressionUtils.makeOr(ExpressionUtils.makeOr(ExpressionUtils.makeOr(ExpressionUtils.makeOr(ExpressionUtils.makeOr(ExpressionUtils.makeOr(ExpressionUtils.makeOr(ExpressionUtils.makeOr(Var(WorldBits.columnName).eq(IntPrimitive(1)),
 //            Var(WorldBits.columnName).eq(IntPrimitive(2))),Var(WorldBits.columnName).eq(IntPrimitive(2)))
 //            ,Var(WorldBits.columnName).eq(IntPrimitive(4))),Var(WorldBits.columnName).eq(IntPrimitive(8)))
@@ -264,11 +262,8 @@ class InterleaveMode(seeds: Seq[Long] = (0l until 10l).toSeq)
       }
 
       case Join(lhsOldChild, rhsOldChild) => {
-        println("lhs: "+lhsOldChild+"\n"+rhsOldChild)
         val (lhsNewChild, lhsNonDeterministicInput) = compileInterleaved(lhsOldChild, db)
-        println(lhsNonDeterministicInput)
         val (rhsNewChild, rhsNonDeterministicInput) = compileInterleaved(rhsOldChild, db)
-        println(rhsNonDeterministicInput)
         // To safely join the two together, we need to rename the world-bit columns
 
 
@@ -306,7 +301,6 @@ class InterleaveMode(seeds: Seq[Long] = (0l until 10l).toSeq)
 
       case Aggregate(gbColumns, aggColumns, oldChild) => {
         val (newChild, nonDeterministicInput) = compileInterleaved(oldChild, db)
-        println(gbColumns+" "+aggColumns+" "+oldChild)
         
         (
           Aggregate(gbColumns++Seq(Var(WorldBits.columnName)), aggColumns,
@@ -337,9 +331,7 @@ class InterleaveMode(seeds: Seq[Long] = (0l until 10l).toSeq)
 
 
       case Sort(sortCols,oldChild)=>{
-        println(query)
         val (newChild, nonDeterministicInput) = compileInterleaved(oldChild, db)
-        println(nonDeterministicInput)
         if (limit){
           (
             Sort(sortCols,newChild),nonDeterministicInput

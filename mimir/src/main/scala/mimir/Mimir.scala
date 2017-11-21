@@ -230,18 +230,27 @@ object Mimir extends LazyLogging {
     }.toSeq
     relevantTables.foreach(createMVLens(_))
     val random = new Random(42)
-    val approach = CostOptimizer.getCompileMode(db,query,timings)
-    var hybrid = false
-    var c = approach(0)
+    var c= '\0' 
     val stack = new scala.collection.mutable.Stack[String]
-    for(ch <- approach) {
-      if(ch=='0') {
-        stack.push("TB")
-      } else {
-        stack.push("IL")
-      }
-      if(ch!=c) {
-        hybrid = true
+    var hybrid = false
+    if(qOpt.isIL()) {
+      c = '2'
+      println("isIL")
+      println(qOpt.getSelectBody)
+    }
+    else {
+      val UCSet = qOpt.getUncertSet()
+      val approach = CostOptimizer.getCompileMode(db,query,timings,UCSet)
+      c = approach(0)
+      for(ch <- approach) {
+        if(ch=='0') {
+          stack.push("TB")
+        } else {
+          stack.push("IL")
+        }
+        if(ch!=c) {
+          hybrid = true
+        }
       }
     }
     if(hybrid) {
