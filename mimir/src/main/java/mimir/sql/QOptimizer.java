@@ -482,6 +482,22 @@ public class QOptimizer implements Statement{
 		return singleTable;
 	}
 
+	public HashMap<String, String> getAliasMap() {
+		return aliasMap;
+	}
+
+	public void setAliasMap(HashMap<String, String> aliasMap) {
+		this.aliasMap = aliasMap;
+	}
+
+	public HashSet<String> getUncertSet() {
+		return uncertSet;
+	}
+
+	public void setUncertSet(HashSet<String> uncertSet) {
+		this.uncertSet = uncertSet;
+	}
+
 	public boolean isIL() {
 		return IL;
 	}
