@@ -143,6 +143,7 @@ object CostOptimizer{
 
       case Select(condition, oldChild) => {
         //println("\nselect columns: "+query.expressions)
+        condition.children.map{expr=>{expr.}}
         var numUcCols = 0 //TODO
         var tb = java.lang.Double.MAX_VALUE
         var il = java.lang.Double.MAX_VALUE
