@@ -85,7 +85,7 @@ object CostOptimizer{
     calcHybrid(new StringBuilder(""),0)
     println(s"CompileType: $approach \nMin Time: $minVal" )
     //Check timings
-    approach
+    approach.toString
   }
 
   def compileTimings(query: Operator, db: Database): (Operator, Set[String]) =
@@ -142,6 +142,7 @@ object CostOptimizer{
       }
 
       case Select(condition, oldChild) => {
+        //println("\nselect columns: "+query.expressions)
         var numUcCols = 0 //TODO
         var tb = java.lang.Double.MAX_VALUE
         var il = java.lang.Double.MAX_VALUE
@@ -176,7 +177,7 @@ object CostOptimizer{
 
       case Join(lhsOldChild, rhsOldChild) => {
         
-        var numUcCols = 0 //TODO
+        var numUcCols = 0
         var tb = java.lang.Double.MAX_VALUE
         var il = java.lang.Double.MAX_VALUE
         var naive = java.lang.Double.MAX_VALUE

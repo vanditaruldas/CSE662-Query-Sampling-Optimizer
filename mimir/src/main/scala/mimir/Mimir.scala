@@ -223,6 +223,7 @@ object Mimir extends LazyLogging {
     val size = qOpt.getDataSize()
     val uncertainty = qOpt.getUcPrct()
     val timings = qOpt.getTimings()
+    var compileMode = ""
     relevantTables = Source.fromFile("test/UncertaintyList/UncertaintyList.txt").getLines.toArray.map{ line => 
       val w = line.split(" ")
       (w(0),w.tail)
@@ -231,9 +232,9 @@ object Mimir extends LazyLogging {
     val random = new Random(42)
     val approach = CostOptimizer.getCompileMode(db,query,timings)
     var hybrid = false
-    char c = approach(0)
+    var c = approach(0)
     val stack = new scala.collection.mutable.Stack[String]
-    for(val ch : approach) {
+    for(ch <- approach) {
       if(ch=='0') {
         stack.push("TB")
       } else {
@@ -244,20 +245,24 @@ object Mimir extends LazyLogging {
       }
     }
     if(hybrid) {
+      compileMode = "Hybrid"
       // TODO
     } else {
-      if (ch=='0') { //TupleBundle
+      if (c=='0') { //TupleBundle
+        compileMode = "TupleBundle"
         val tupleBundle = new TupleBundle( (0 until 10).map { _ => random.nextLong })
         TimeUtils.monitor("QUERY", output.print(_)) {
           db.query(query, tupleBundle) { output.print(_) }
         }
-      } else if (ch=='N'){ //Naive
+      } else if (c=='N'){ //Naive
+        compileMode = "Naive"
         val naiveMode = new NaiveMode((0 until 10).map { _ => random.nextLong })
         TimeUtils.monitor("QUERY", output.print(_)) {
           db.query(query, naiveMode) { output.print(_) }
         }
       }
-      else if (ch=='2'){ //Interleave
+      else if (c=='2'){ //Interleave
+        compileMode = "Interleave"
         val interleaveMode = new InterleaveMode((0 until 10).map { _ => random.nextLong })
         TimeUtils.monitor("QUERY", output.print(_)) {
           db.query(query, interleaveMode) { output.print(_) }
