@@ -136,7 +136,7 @@ public class QOptimizer implements Statement{
 	private void changeQuery() {
 		String name = ((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getName();
 		if(uncertAtt.containsKey(name))
-			this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
+			this.setQuery(this.getQuery().replaceAll(name.concat(" "), name.concat("_RUN_1 ")));
 		
 		if(((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias() != null)
 			aliasMap.put(((Table)((PlainSelect)this.getSelectBody()).getFromItem()).getAlias(), name);
@@ -147,7 +147,8 @@ public class QOptimizer implements Statement{
 			{
 				name = ((Table)j.getRightItem()).getName().toUpperCase();
 				if(uncertAtt.containsKey(name))
-					this.setQuery(this.getQuery().replaceAll(name, name.concat("_RUN_1")));
+					this.setQuery(this.getQuery().replaceAll(name.concat(" "), name.concat("_RUN_1 ")));
+				
 				if(((Table)j.getRightItem()).getAlias() != null)
 					aliasMap.put(((Table)j.getRightItem()).getAlias(), name);
 			}

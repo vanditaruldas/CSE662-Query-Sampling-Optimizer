@@ -37,14 +37,15 @@ object CostOptimizer{
   var value : Double = 0.0
   var TBtoIL : Double = 1.0
   var ILtoTB : Double = 1.0
+  var numUcSelect : Int = 0
   
   
   def calcHybrid(compileType : StringBuilder, index : Int) {
     if(index == hybridTimings.size) {
+      println(s"$compileType $value")
       if(value<minVal) {
         minVal = value
         approach = new StringBuilder(compileType.toString) 
-        println(s"$compileType $value")
       }
     }
     else {
@@ -80,17 +81,32 @@ object CostOptimizer{
     var query = queryRaw
     timings = timingsF
     uncertSet = UCSet
-    println(uncertSet)
     val (withProvenance, provenanceCols) = Provenance.compile(query)
     query = withProvenance
     val (compiled, nonDeterministicColumns) = compileTimings(query, db)
-    println(hybridTimings)
+    println("\n"+hybridTimings)
     minVal = naiveTiming
+    if(minVal!= java.lang.Double.MAX_VALUE) {
+      println(s"N: $minVal")
+    }
     approach = new StringBuilder("N")
     calcHybrid(new StringBuilder(""),0)
     println(s"CompileType: $approach \nMin Time: $minVal" )
     //Check timings
     approach.toString
+  }
+  
+  def getNumUcSelect(condition : Expression) : Unit = {
+    if(condition.children(0).isInstanceOf[Var] || condition.children(1).isInstanceOf[Var]) {
+      if(!(condition.children(0).isInstanceOf[Var] && condition.children(1).isInstanceOf[Var])) {
+        if(uncertSet.contains(condition.children(0).toString)) numUcSelect+=1
+        if(uncertSet.contains(condition.children(1).toString)) numUcSelect+=1
+      }
+    }
+    else{
+      getNumUcSelect(condition.children(0))
+      getNumUcSelect(condition.children(1))
+    }      
   }
 
   def compileTimings(query: Operator, db: Database): (Operator, Set[String]) =
@@ -147,22 +163,10 @@ object CostOptimizer{
       }
 
       case Select(condition, oldChild) => {
-        println("children: "+condition.children)
+        numUcSelect = 0
         //println("\nselect columns: "+query.expressions)
-        var numUcCols = 0
-        condition.children.map {
-          expr => {
-            if(!(expr.children(0).isInstanceOf[Var] && expr.children(1).isInstanceOf[Var])) {
-              if(expr.children(0).isInstanceOf[Var]) {
-                if(uncertSet.contains(expr.children(0).toString)) numUcCols+=1
-              }
-              else if(expr.children(1).isInstanceOf[Var]) {
-                if(uncertSet.contains(expr.children(1).toString)) numUcCols+=1
-              }
-            }
-          }
-        }
-        println("Select "+numUcCols)
+        getNumUcSelect(condition)
+        var numUcCols = numUcSelect
         if(numUcCols>2) numUcCols = 2
         var tb = java.lang.Double.MAX_VALUE
         var il = java.lang.Double.MAX_VALUE
@@ -258,11 +262,9 @@ object CostOptimizer{
         var numUcCols = 0 //TODO
         gbColumns.map {
           col => {
-            println(col)
             if(uncertSet.contains(col.toString)) numUcCols+=1
           }
         }
-        println("Aggregate "+numUcCols+" GBCols: "+gbColumns)
         if(numUcCols>2) numUcCols = 2
         var tb = java.lang.Double.MAX_VALUE
         var il = java.lang.Double.MAX_VALUE
@@ -329,18 +331,15 @@ object CostOptimizer{
         var numUcCols = 0 //TODO
         sortCols.map {
           col => {
-            println(col.expression)
             if(uncertSet.contains(col.expression.toString)) numUcCols+=1
           }
         }
-        println("Sort "+numUcCols+" Cols: "+sortCols)
         if(numUcCols>2) numUcCols = 2
         var tb = java.lang.Double.MAX_VALUE
         var il = java.lang.Double.MAX_VALUE
         var naive = java.lang.Double.MAX_VALUE
         if(timings.containsKey("orderby")) {
           val timingsSel = timings.get("orderby")
-          println(timingsSel)
           if(timingsSel.containsKey("TB")) {
             tb=timingsSel.get("TB").get(numUcCols)
           }
@@ -349,7 +348,6 @@ object CostOptimizer{
           }
           if(timingsSel.containsKey("IL")) {
             il=timingsSel.get("IL").get(numUcCols)
-            println(numUcCols+" "+il)
           }
         } 
         

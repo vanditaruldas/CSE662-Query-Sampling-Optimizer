@@ -235,8 +235,6 @@ object Mimir extends LazyLogging {
     var hybrid = false
     if(qOpt.isIL()) {
       c = '2'
-      println("isIL")
-      println(qOpt.getSelectBody)
     }
     else {
       val UCSet = qOpt.getUncertSet()
