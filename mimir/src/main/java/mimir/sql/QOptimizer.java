@@ -267,8 +267,6 @@ public class QOptimizer implements Statement{
 	
 	private void checkJoin(PlainSelect select)
 	{
-		if(this.isSingleTable())
-			return;
 		if(!(select.getFromItem() instanceof Table))
 			checkJoin((PlainSelect)((SubSelect)select.getFromItem()).getSelectBody());
 		
@@ -298,6 +296,35 @@ public class QOptimizer implements Statement{
 					tablName = aliasMap.get(((Column)temp.getRightExpression()).getTable().getName());
 					if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getRightExpression()).getColumnName()))
 						this.setIL(true);
+				}
+				else if(temp.getLeftExpression() instanceof Column)
+				{
+					if(this.isSingleTable())
+					{
+						if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(((Column)temp.getLeftExpression()).getColumnName()))
+							this.setIL(true);
+					}
+					else
+					{
+						String tablName = aliasMap.get(((Column)temp.getLeftExpression()).getTable().getName());
+						if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getLeftExpression()).getColumnName()))
+							this.setIL(true);					
+					}
+
+				}
+				else if(temp.getRightExpression() instanceof Column)
+				{
+					if(this.isSingleTable())
+					{
+						if(uncertAtt.containsKey(this.getSingleTableName()) && uncertAtt.get(this.getSingleTableName()).contains(((Column)temp.getRightExpression()).getColumnName()))
+							this.setIL(true);
+					}
+					else
+					{
+						String tablName = aliasMap.get(((Column)temp.getRightExpression()).getTable().getName());
+						if(uncertAtt.containsKey(tablName) && uncertAtt.get(tablName).contains(((Column)temp.getRightExpression()).getColumnName()))
+							this.setIL(true);
+					}
 				}
 			}
 		}
