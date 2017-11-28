@@ -49,7 +49,11 @@ object CostOptimizer{
       }
     }
     else {
-      if(value!=java.lang.Double.MAX_VALUE) {
+      if(hybridTimings(index)._1==(-1)) {
+        compileType+='3'
+        calcHybrid(compileType,index+1)
+        compileType.deleteCharAt(compileType.size-1)
+      } else if(value!=java.lang.Double.MAX_VALUE) {
         if(hybridTimings(index)._1!=java.lang.Double.MAX_VALUE) {
           var temp = hybridTimings(index)._1
           if(compileType.size>1 && compileType(compileType.size-1)!='0') {
@@ -123,6 +127,7 @@ object CostOptimizer{
       case Project(columns, oldChild) => {
 
         val (newChild, nonDeterministicInput) = compileTimings(oldChild, db)
+        hybridTimings = hybridTimings :+ (-1.0,-1.0,-1.0)
 
         val (
           newColumns,
@@ -246,7 +251,7 @@ object CostOptimizer{
       case Union(lhsOldChild, rhsOldChild) => {
         val (lhsNewChild, lhsNonDeterministicInput) = compileTimings(lhsOldChild, db)
         val (rhsNewChild, rhsNonDeterministicInput) = compileTimings(rhsOldChild, db)
-
+        hybridTimings = hybridTimings :+ (-1.0,-1.0,-1.0)
         val nonDeterministicOutput =
           lhsNonDeterministicInput ++ rhsNonDeterministicInput
         (
@@ -309,6 +314,7 @@ object CostOptimizer{
       case Limit(offset,count,oldChild) =>{
         limit = true
         val (newChild, nonDeterministicInput) = compileTimings(oldChild, db)
+        hybridTimings = hybridTimings :+ (-1.0,-1.0,-1.0)
         limit = false
         var projectArgs = newChild.columnNames.map{ cols =>
           ProjectArg(cols,Var(cols))

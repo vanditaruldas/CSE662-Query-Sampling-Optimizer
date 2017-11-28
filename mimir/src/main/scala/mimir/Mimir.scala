@@ -27,6 +27,8 @@ import com.typesafe.scalalogging.slf4j.LazyLogging
 import scala.collection.JavaConverters._
 import scala.io.Source
 
+import com.github.nscala_time.time.Imports._
+
 /**
  * The primary interface to Mimir.  Responsible for:
  * - Parsing and processing command line arguments.
@@ -156,6 +158,13 @@ object Mimir extends LazyLogging {
 
   def handleQuery(raw:Operator) = 
   {
+    /*
+    var x = 0
+    val start = DateTime.now
+    db.query(raw) { results => {results.foreach { row => x=x+1 } } }
+    val end = DateTime.now
+    println(s"${(start to end).millis} ms")
+    */
     TimeUtils.monitor("QUERY", output.print(_)) {
       db.query(raw) { output.print(_) }
     }
@@ -239,14 +248,19 @@ object Mimir extends LazyLogging {
     else {
       val UCSet = qOpt.getUncertSet()
       val approach = CostOptimizer.getCompileMode(db,query,timings,UCSet)
-      c = approach(0)
+      c = '1'
       for(ch <- approach) {
+        if(c=='1' && ch!='3') {
+          c=ch
+        }
         if(ch=='0') {
           stack.push("TB")
-        } else {
+        } else if(ch=='2') {
           stack.push("IL")
+        } else {
+          stack.push("None")
         }
-        if(ch!=c) {
+        if(ch!='3' && ch!=c) {
           hybrid = true
         }
       }
@@ -271,9 +285,9 @@ object Mimir extends LazyLogging {
       else if (c=='2'){ //Interleave
         compileMode = "Interleave"
         val interleaveMode = new InterleaveMode((0 until 10).map { _ => random.nextLong })
-        TimeUtils.monitor("QUERY", output.print(_)) {
+        /*TimeUtils.monitor("QUERY", output.print(_)) {
           db.query(query, interleaveMode) { output.print(_) }
-        }
+        }*/
       }
     }
     println(s"Compile Mode: $compileMode")
